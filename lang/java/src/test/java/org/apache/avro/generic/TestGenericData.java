@@ -17,16 +17,10 @@
  */
 package org.apache.avro.generic;
 
-import java.util.LinkedHashMap;
-
 import static org.junit.Assert.*;
 
-import java.util.Arrays;
-
 import org.apache.avro.Schema;
-import org.apache.avro.Schema.Field;
 import org.apache.avro.AvroRuntimeException;
-import org.apache.avro.Schema.Type;
 
 import org.junit.Test;
 
@@ -51,21 +45,5 @@ public class TestGenericData {
     public void testArrayConstructorWrongSchema() throws Exception {
     new GenericData.Array<Object>(1, Schema.create(Schema.Type.INT));
   }
-  
-  @Test
-  /** Make sure that even with nulls, hashCode() doesn't throw NPE. */
-  public void testHashCode() {
-    GenericData.get().hashCode(null, Schema.create(Type.NULL));
-    GenericData.get().hashCode(null, Schema.createUnion(
-        Arrays.asList(Schema.create(Type.BOOLEAN), Schema.create(Type.STRING))));
-  }
 
-  @Test
-  public void testRecordGetFieldDoesntExist() throws Exception {
-    LinkedHashMap<String, Field> fields = new LinkedHashMap<String, Field>();
-    Schema schema = Schema.createRecord(fields);
-    GenericData.Record record = new GenericData.Record(schema);
-    assertNull(record.get("does not exist"));
-  }
-    
 }

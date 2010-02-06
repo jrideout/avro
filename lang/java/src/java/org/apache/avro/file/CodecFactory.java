@@ -19,7 +19,6 @@ package org.apache.avro.file;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.zip.Deflater;
 
 import org.apache.avro.AvroRuntimeException;
 
@@ -35,7 +34,23 @@ public abstract class CodecFactory {
   public static CodecFactory deflateCodec(int compressionLevel) { 
     return new DeflateCodec.Option(compressionLevel); 
   };
-  
+
+  /** Deflate codec, with default compression. */
+  public static CodecFactory deflateCodec() {
+    return new DeflateCodec.Option();
+  };
+
+  /** FastLz codec, with default compression. */
+  public static CodecFactory fastlzCodec() {
+    return new FastLzCodec.Option();
+  };
+
+  /** FastLz codec, with specific compression.
+   * compressionLevel should be 1 or 2. */
+  public static CodecFactory fastlzCodec(int compressionLevel) {
+    return new FastLzCodec.Option(compressionLevel);
+  };
+
   /** Creates internal Codec. */
   protected abstract Codec createInstance();
   
@@ -45,11 +60,10 @@ public abstract class CodecFactory {
   private static final Map<String, CodecFactory> REGISTERED = 
     new HashMap<String, CodecFactory>();
 
-  private static final int DEFAULT_DEFLATE_LEVEL = Deflater.DEFAULT_COMPRESSION;
-
   static {
     addCodec("null", nullCodec());
-    addCodec("deflate", deflateCodec(DEFAULT_DEFLATE_LEVEL));
+    addCodec("deflate", deflateCodec());
+    addCodec("fastlz", fastlzCodec());
   }
 
   /** Maps a codec name into a CodecOption. */

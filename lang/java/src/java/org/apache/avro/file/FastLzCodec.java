@@ -17,31 +17,24 @@
  */
 package org.apache.avro.file;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
-import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
+import org.jfastlz.JFastLZLevel;
+import org.jfastlz.JFastLZPack;
+import org.jfastlz.JFastLZUnpack;
 
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.Decoder;
 
 /** 
- * Implements DEFLATE (RFC1951) compression and decompression. 
+ * Implements FastLZ compression and decompression. 
  *
- * Note that there is a distinction between RFC1951 (deflate)
- * and RFC1950 (zlib).  zlib adds an extra 2-byte header
- * at the front, and a 4-byte checksum at the end.  The
- * code here, by passing "true" as the "nowrap" option to
- * {@link Inflater} and {@link Deflater}, is using
- * RFC1951.
  */
-class DeflateCodec extends Codec {
+class FastLzCodec extends Codec {
 
-  private static final int DEFAULT_COMPRESSION_LEVEL = Deflater.DEFAULT_COMPRESSION;
+  private static final int DEFAULT_COMPRESSION_LEVEL = -1;
 
   static class Option extends CodecFactory {
     private int compressionLevel;
@@ -61,44 +54,54 @@ class DeflateCodec extends Codec {
   }
 
   ByteArrayOutputStream compressionBuffer;
-  private Deflater deflater;
   private int compressionLevel;
+  private JFastLZPack compressor;
+  private JFastLZUnpack decompressor;
 
-  public DeflateCodec(int compressionLevel) {
+  public FastLzCodec(int compressionLevel) {
     this.compressionLevel = compressionLevel;
   }
 
   @Override
   String getName() {
-    return DataFileConstants.DEFLATE_CODEC;
+    return DataFileConstants.FASTLZ_CODEC;
   }
 
   @Override
-  ByteArrayOutputStream compress(ByteArrayOutputStream buffer) 
+  ByteArrayOutputStream compress(ByteArrayOutputStream buffer)
     throws IOException {
     if (compressionBuffer == null) {
       compressionBuffer = new ByteArrayOutputStream(buffer.size());
     } else {
       compressionBuffer.reset();
     }
-    if (deflater == null) {
-      deflater = new Deflater(compressionLevel, true);
+    if (compressor == null) {
+      compressor = new JFastLZPack();
     }
-    // Pass output through deflate
-    DeflaterOutputStream deflaterStream = 
-      new DeflaterOutputStream(compressionBuffer, deflater);
-    buffer.writeTo(deflaterStream);
-    deflaterStream.finish();
-    deflater.reset();
+    byte[] original = buffer.toByteArray();
+    byte[] packed = new byte[original.length*6];
+
+    // Pass output through fastlz, and prepend with length of compressed output.
+    int packedSize = compressor.pack(original, 0, original.length, packed, 0,
+        packed.length, JFastLZLevel.evaluateLevel(compressionLevel));
+    // writeBytes will first write the length as a long
+    compressionBuffer.write(packed, 0, packedSize);
     return compressionBuffer;
   }
 
   @Override
   Decoder decompress(byte[] in) throws IOException {
-    Inflater inflater = new Inflater(true);
-    InputStream uncompressed = new InflaterInputStream(
-        new ByteArrayInputStream(in), inflater);
-    return new BinaryDecoder(uncompressed);
+    if (decompressor == null) {
+      decompressor = new JFastLZUnpack();
+    }
+    ByteArrayOutputStream uncompressed = new ByteArrayOutputStream(in.length*6);
+    ByteArrayInputStream compressed = new ByteArrayInputStream(in);     
+
+    decompressor.unpackStream(compressed, uncompressed);
+    byte[] buffer = uncompressed.toByteArray();
+    
+    InputStream uncompressedInput = new ByteArrayInputStream(buffer);
+    return new BinaryDecoder(uncompressedInput);
   }
 
 }

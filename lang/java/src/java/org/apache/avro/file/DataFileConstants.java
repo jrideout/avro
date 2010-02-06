@@ -34,5 +34,5 @@ class DataFileConstants {
   public static final String CODEC = "avro.codec";
   public static final String NULL_CODEC = "null";
   public static final String DEFLATE_CODEC = "deflate";
-
+  public static final String FASTLZ_CODEC = "fastlz";
 }
